@@ -13,12 +13,12 @@ import (
 
 func main() {
         log := logrus.New()
-        hook, err := logrus_logstash.NewHook("tcp", "172.17.0.2:9999")
+        hook, err := logrus_logstash.NewHook("tcp", "172.17.0.2:9999", "myappName")
         if err != nil {
                 log.Fatal(err)
         }
         log.Hooks.Add(hook)
-        ctx := ctx := log.WithFields(logrus.Fields{
+        ctx := log.WithFields(logrus.Fields{
           "method": "main",
         })
         ...
@@ -36,6 +36,7 @@ This is how it will look like:
        "message" => "Hello World!",
         "method" => "main",
           "host" => "172.17.0.1",
-          "port" => 45199
+          "port" => 45199,
+          "type" => "myappName"
 }
 ```
