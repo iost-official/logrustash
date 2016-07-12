@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"github.com/Sirupsen/logrus"
-	logrus_logstash_fmt "github.com/Sirupsen/logrus/formatters/logstash"
 )
 
 // Hook represents a connection to a Logstash instance
@@ -24,7 +23,7 @@ func NewHook(protocol, address, appName string) (*Hook, error) {
 }
 
 func (h *Hook) Fire(entry *logrus.Entry) error {
-	formatter := logrus_logstash_fmt.LogstashFormatter{Type: h.appName}
+	formatter := LogstashFormatter{Type: h.appName}
 	dataBytes, err := formatter.Format(entry)
 	if err != nil {
 		return err
