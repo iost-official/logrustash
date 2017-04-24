@@ -41,6 +41,24 @@ This is how it will look like:
           "type" => "myappName"
 }
 ```
+
+
+## Async mode
+
+Create hook with _NewAsync..._ factory methods if you want to send logs in async mode.
+
+Example:
+
+```go
+log := logrus.New()
+hook, err := logrus_logstash.NewAsyncHook("tcp", "172.17.0.2:9999", "myappName")
+if err != nil {
+        log.Fatal(err)
+}
+log.Hooks.Add(hook)
+```
+
+
 ## Hook Fields
 Fields can be added to the hook, which will always be in the log context.
 This can be done when creating the hook:
