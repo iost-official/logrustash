@@ -25,6 +25,9 @@ func TestLegostashHook(t *testing.T) {
 		{Expct{"bla", "", nil}, func() (*Hook, error) {
 			return NewHook("udp", "localhost:9999", "bla")
 		}},
+		{Expct{"bla_async", "", nil}, func() (*Hook, error) {
+			return NewAsyncHook("udp", "localhost:9999", "bla_async")
+		}},
 		{Expct{"bzz", "", nil}, func() (*Hook, error) {
 			udpConn, err := net.Dial("udp", "localhost:9999")
 			if err != nil {
@@ -32,11 +35,24 @@ func TestLegostashHook(t *testing.T) {
 			}
 			return NewHookWithConn(udpConn, "bzz")
 		}},
+		{Expct{"bzz_async", "", nil}, func() (*Hook, error) {
+			udpConn, err := net.Dial("udp", "localhost:9999")
+			if err != nil {
+				return nil, err
+			}
+			return NewAsyncHookWithConn(udpConn, "bzz_async")
+		}},
 		{Expct{"blk", "", logrus.Fields{"id": 1}}, func() (*Hook, error) {
 			return NewHookWithFields("udp", "localhost:9999", "blk", logrus.Fields{"id": 1})
 		}},
+		{Expct{"blk_async", "", logrus.Fields{"id": 1}}, func() (*Hook, error) {
+			return NewAsyncHookWithFields("udp", "localhost:9999", "blk_async", logrus.Fields{"id": 1})
+		}},
 		{Expct{"prefix", "-->", logrus.Fields{"id": 1}}, func() (*Hook, error) {
 			return NewHookWithFieldsAndPrefix("udp", "localhost:9999", "prefix", logrus.Fields{"id": 1}, "-->")
+		}},
+		{Expct{"prefix_async", "-->", logrus.Fields{"id": 1}}, func() (*Hook, error) {
+			return NewAsyncHookWithFieldsAndPrefix("udp", "localhost:9999", "prefix_async", logrus.Fields{"id": 1}, "-->")
 		}},
 		{Expct{"fieldsconn", "", logrus.Fields{"id": 5}}, func() (*Hook, error) {
 			udpConn, err := net.Dial("udp", "localhost:9999")
@@ -45,12 +61,26 @@ func TestLegostashHook(t *testing.T) {
 			}
 			return NewHookWithFieldsAndConn(udpConn, "fieldsconn", logrus.Fields{"id": 5})
 		}},
+		{Expct{"fieldsconn_async", "", logrus.Fields{"id": 5}}, func() (*Hook, error) {
+			udpConn, err := net.Dial("udp", "localhost:9999")
+			if err != nil {
+				return nil, err
+			}
+			return NewAsyncHookWithFieldsAndConn(udpConn, "fieldsconn_async", logrus.Fields{"id": 5})
+		}},
 		{Expct{"zz", "~~>", logrus.Fields{"id": "bal"}}, func() (*Hook, error) {
 			udpConn, err := net.Dial("udp", "localhost:9999")
 			if err != nil {
 				return nil, err
 			}
 			return NewHookWithFieldsAndConnAndPrefix(udpConn, "zz", logrus.Fields{"id": "bal"}, "~~>")
+		}},
+		{Expct{"zz_async", "~~>", logrus.Fields{"id": "bal"}}, func() (*Hook, error) {
+			udpConn, err := net.Dial("udp", "localhost:9999")
+			if err != nil {
+				return nil, err
+			}
+			return NewAsyncHookWithFieldsAndConnAndPrefix(udpConn, "zz_async", logrus.Fields{"id": "bal"}, "~~>")
 		}},
 	}
 
@@ -81,33 +111,53 @@ func TestLegostashHook(t *testing.T) {
 	}
 }
 
+type filteringTestCase struct {
+	expected filteringTestCaseExpct
+	initFunc func() *Hook
+}
+
+type filteringTestCaseExpct struct {
+	prefix  string
+	appName string
+}
+
 func TestNewFiltering(t *testing.T) {
-	type Expct struct {
-		prefix  string
-		appName string
-	}
-	tt := []struct {
-		expected Expct
-		initFunc func() *Hook
-	}{
-		{Expct{"", ""}, func() *Hook {
+	testCases := []filteringTestCase{
+		{filteringTestCaseExpct{"", ""}, func() *Hook {
 			return NewFilterHook()
 		}},
-		{Expct{"~~~>", ""}, func() *Hook {
+		{filteringTestCaseExpct{"~~~>", ""}, func() *Hook {
 			return NewFilterHookWithPrefix("~~~>")
 		}},
 	}
 
-	for _, te := range tt {
-		h := te.initFunc()
+	testFiltering(t, testCases)
+}
+
+func TestNewAsyncFiltering(t *testing.T) {
+	testCases := []filteringTestCase{
+		{filteringTestCaseExpct{"", ""}, func() *Hook {
+			return NewAsyncFilterHook()
+		}},
+		{filteringTestCaseExpct{"~~~>", ""}, func() *Hook {
+			return NewAsyncFilterHookWithPrefix("~~~>")
+		}},
+	}
+
+	testFiltering(t, testCases)
+}
+
+func testFiltering(t *testing.T, testCases []filteringTestCase) {
+	for _, tc := range testCases {
+		h := tc.initFunc()
 		if h.conn != nil {
 			t.Error("expected conn to be nil")
 		}
 		if h.alwaysSentFields == nil {
 			t.Error("expected alwaysSentFields to be not nil")
 		}
-		if h.hookOnlyPrefix != te.expected.prefix {
-			t.Errorf("expected prefix to be '%s' but got '%s'", te.expected.prefix, h.hookOnlyPrefix)
+		if h.hookOnlyPrefix != tc.expected.prefix {
+			t.Errorf("expected prefix to be '%s' but got '%s'", tc.expected.prefix, h.hookOnlyPrefix)
 		}
 	}
 }
