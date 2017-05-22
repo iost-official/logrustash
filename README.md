@@ -1,5 +1,22 @@
-# Logstash hook for logrus <img src="http://i.imgur.com/hTeVwmJ.png" width="40" height="40" alt=":walrus:" class="emoji" title=":walrus:" /> [![Build Status](https://travis-ci.org/bshuster-repo/logrus-logstash-hook.svg?branch=master)](https://travis-ci.org/bshuster-repo/logrus-logstash-hook)
+[![Build Status](https://travis-ci.org/cheshir/logrus-logstash-hook.svg?branch=master)](https://travis-ci.org/cheshir/logrus-logstash-hook)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cheshir/logrus-logstash-hook)](https://goreportcard.com/report/github.com/cheshir/logrus-logstash-hook)
+[![codecov](https://codecov.io/gh/cheshir/logrus-logstash-hook/branch/master/graph/badge.svg)](https://codecov.io/gh/cheshir/logrus-logstash-hook)
+[![GoDoc](https://godoc.org/github.com/cheshir/logrus-logstash-hook?status.svg)](https://godoc.org/github.com/cheshir/logrus-logstash-hook)
+
+# Logstash hook for logrus <img src="http://i.imgur.com/hTeVwmJ.png" width="40" height="40" alt=":walrus:" class="emoji" title=":walrus:" />
 Use this hook to send the logs to [Logstash](https://www.elastic.co/products/logstash) over both UDP and TCP.
+
+# Important notes
+
+This a fork from [github.com/bshuster-repo/logrus-logstash-hook](https://github.com/bshuster-repo/logrus-logstash-hook.git) repo.
+
+[ripcurld0](https://github.com/ripcurld0) going to rewrite original hook but there is no estimates when it will be ready for using in production. 
+And more important is that he declines all pull requests with new features. 
+So the main goal of this fork is to add some new features and use logstash hook until [ripcurld0](https://github.com/ripcurld0) finish his work.
+
+Added features:
+
+* [Async mode](#async-mode). You can send log messages without blocking logic.
 
 ## Usage
 
@@ -7,8 +24,8 @@ Use this hook to send the logs to [Logstash](https://www.elastic.co/products/log
 package main
 
 import (
-        "github.com/sirupsen/logrus"
-        "github.com/bshuster-repo/logrus-logstash-hook"
+    "github.com/cheshir/logrustash"
+    "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -51,7 +68,7 @@ Example:
 
 ```go
 log := logrus.New()
-hook, err := logrus_logstash.NewAsyncHook("tcp", "172.17.0.2:9999", "myappName")
+hook, err := logrustash.NewAsyncHook("tcp", "172.17.0.2:9999", "myappName")
 if err != nil {
         log.Fatal(err)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Formatter generates json in logstash format.
+// LogstashFormatter generates json in logstash format.
 // Logstash site: http://logstash.net/
 type LogstashFormatter struct {
 	Type string // if not empty use for logstash type field.
@@ -17,14 +17,16 @@ type LogstashFormatter struct {
 	TimestampFormat string
 }
 
+// Format formats log message.
 func (f *LogstashFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return f.FormatWithPrefix(entry, "")
 }
 
+// FormatWithPrefix removes prefix from keys and formats log message.
 func (f *LogstashFormatter) FormatWithPrefix(entry *logrus.Entry, prefix string) ([]byte, error) {
 	fields := make(logrus.Fields)
 	for k, v := range entry.Data {
-		//remvove the prefix when sending the fields to logstash
+		// Remove the prefix when sending the fields to logstash
 		if prefix != "" && strings.HasPrefix(k, prefix) {
 			k = strings.TrimPrefix(k, prefix)
 		}

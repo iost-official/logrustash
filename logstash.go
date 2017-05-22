@@ -163,17 +163,20 @@ func (h *Hook) WithPrefix(prefix string) {
 	h.hookOnlyPrefix = prefix
 }
 
+//WithField add field with value that will be sent with each message
 func (h *Hook) WithField(key string, value interface{}) {
 	h.alwaysSentFields[key] = value
 }
 
+// WithFields add fields with values that will be sent with each message
 func (h *Hook) WithFields(fields logrus.Fields) {
-	//Add all the new fields to the 'alwaysSentFields', possibly overwriting exising fields
+	// Add all the new fields to the 'alwaysSentFields', possibly overwriting existing fields
 	for key, value := range fields {
 		h.alwaysSentFields[key] = value
 	}
 }
 
+// Fire send message to logstash
 func (h *Hook) Fire(entry *logrus.Entry) error {
 	if h.fireChannel != nil { // Async mode.
 		h.fireChannel <- entry
@@ -183,7 +186,7 @@ func (h *Hook) Fire(entry *logrus.Entry) error {
 }
 
 func (h *Hook) sendMessage(entry *logrus.Entry) error {
-	//make sure we always clear the hookonly fields from the entry
+	// Make sure we always clear the hookonly fields from the entry
 	defer h.filterHookOnly(entry)
 
 	// Add in the alwaysSentFields. We don't override fields that are already set.
@@ -193,7 +196,7 @@ func (h *Hook) sendMessage(entry *logrus.Entry) error {
 		}
 	}
 
-	//For a filteringHook, stop here
+	// For a filteringHook, stop here
 	if h.conn == nil {
 		return nil
 	}
@@ -213,6 +216,8 @@ func (h *Hook) sendMessage(entry *logrus.Entry) error {
 	return nil
 }
 
+// Levels specifies "active" log levels.
+// Log messages with this levels will be sent to logstash.
 func (h *Hook) Levels() []logrus.Level {
 	return []logrus.Level{
 		logrus.PanicLevel,
