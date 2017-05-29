@@ -1,7 +1,7 @@
-[![Build Status](https://travis-ci.org/cheshir/logrus-logstash-hook.svg?branch=master)](https://travis-ci.org/cheshir/logrus-logstash-hook)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cheshir/logrus-logstash-hook)](https://goreportcard.com/report/github.com/cheshir/logrus-logstash-hook)
-[![codecov](https://codecov.io/gh/cheshir/logrus-logstash-hook/branch/master/graph/badge.svg)](https://codecov.io/gh/cheshir/logrus-logstash-hook)
-[![GoDoc](https://godoc.org/github.com/cheshir/logrus-logstash-hook?status.svg)](https://godoc.org/github.com/cheshir/logrus-logstash-hook)
+[![Build Status](https://travis-ci.org/cheshir/logrustash.svg?branch=master)](https://travis-ci.org/cheshir/logrustash)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cheshir/logrustash)](https://goreportcard.com/report/github.com/cheshir/logrustash)
+[![codecov](https://codecov.io/gh/cheshir/logrustash/branch/master/graph/badge.svg)](https://codecov.io/gh/cheshir/logrustash)
+[![GoDoc](https://godoc.org/github.com/cheshir/logrustash?status.svg)](https://godoc.org/github.com/cheshir/logrustash)
 
 # Logstash hook for logrus <img src="http://i.imgur.com/hTeVwmJ.png" width="40" height="40" alt=":walrus:" class="emoji" title=":walrus:" />
 Use this hook to send the logs to [Logstash](https://www.elastic.co/products/logstash) over both UDP and TCP.
