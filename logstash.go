@@ -2,25 +2,35 @@ package logrustash
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
-// Declare the number of logs that can be in progress before logging will start blocking.
+// Declares the number of logs that can be in progress before logging will start blocking.
 const asyncFireBufferSize = 8192
 
 // Hook represents a connection to a Logstash instance
 type Hook struct {
-	conn             net.Conn
-	appName          string
-	alwaysSentFields logrus.Fields
-	hookOnlyPrefix   string
-	TimeFormat       string
-	fireChannel      chan *logrus.Entry
-	Timeout          time.Duration
+	sync.RWMutex
+	conn                     net.Conn
+	protocol                 string
+	address                  string
+	appName                  string
+	alwaysSentFields         logrus.Fields
+	hookOnlyPrefix           string
+	TimeFormat               string
+	fireChannel              chan *logrus.Entry
+	WaitUntilBufferFrees     bool
+	Timeout                  time.Duration // Timeout for sending message.
+	MaxSendRetries           int           // Declares how many times we will try to resend message.
+	ReconnectBaseDelay       time.Duration // First reconnect delay.
+	ReconnectDelayMultiplier float64       // Base multiplier for delay before reconnect.
+	MaxReconnectRetries      int           // Declares how many times we will try to reconnect.
 }
 
 // NewHook creates a new hook to a Logstash instance, which listens on
@@ -67,7 +77,12 @@ func NewHookWithFieldsAndPrefix(protocol, address, appName string, alwaysSentFie
 	if err != nil {
 		return nil, err
 	}
-	return NewHookWithFieldsAndConnAndPrefix(conn, appName, alwaysSentFields, prefix)
+
+	hook, err := NewHookWithFieldsAndConnAndPrefix(conn, appName, alwaysSentFields, prefix)
+	hook.protocol = protocol
+	hook.address = address
+
+	return hook, err
 }
 
 // NewAsyncHookWithFieldsAndPrefix creates a new hook to a Logstash instance, which listens on
@@ -79,6 +94,7 @@ func NewAsyncHookWithFieldsAndPrefix(protocol, address, appName string, alwaysSe
 		return nil, err
 	}
 	hook.makeAsync()
+
 	return hook, err
 }
 
@@ -103,6 +119,7 @@ func NewHookWithFieldsAndConnAndPrefix(conn net.Conn, appName string, alwaysSent
 func NewAsyncHookWithFieldsAndConnAndPrefix(conn net.Conn, appName string, alwaysSentFields logrus.Fields, prefix string) (*Hook, error) {
 	hook := &Hook{conn: conn, appName: appName, alwaysSentFields: alwaysSentFields, hookOnlyPrefix: prefix}
 	hook.makeAsync()
+
 	return hook, nil
 }
 
@@ -127,19 +144,15 @@ func NewFilterHookWithPrefix(prefix string) *Hook {
 func NewAsyncFilterHookWithPrefix(prefix string) *Hook {
 	hook := NewFilterHookWithPrefix(prefix)
 	hook.makeAsync()
+
 	return hook
 }
 
 func (h *Hook) makeAsync() {
 	h.fireChannel = make(chan *logrus.Entry, asyncFireBufferSize)
-	// Set default timeout.
-	if h.Timeout == 0 {
-		h.Timeout = 100 * time.Millisecond
-	}
 
 	go func() {
 		for entry := range h.fireChannel {
-			h.conn.SetWriteDeadline(time.Now().Add(h.Timeout))
 			if err := h.sendMessage(entry); err != nil {
 				fmt.Println("Error during sending message to logstash:", err)
 			}
@@ -176,17 +189,31 @@ func (h *Hook) WithFields(fields logrus.Fields) {
 	}
 }
 
-// Fire send message to logstash
+// Fire send message to logstash.
+// In async mode log message will be dropped if message buffer is full.
+// If you want wait until message buffer frees – set WaitUntilBufferFrees to true.
 func (h *Hook) Fire(entry *logrus.Entry) error {
 	if h.fireChannel != nil { // Async mode.
-		h.fireChannel <- entry
+		select {
+		case h.fireChannel <- entry:
+		default:
+			if h.WaitUntilBufferFrees {
+				h.fireChannel <- entry // Blocks the goroutine because buffer is full.
+
+				return nil
+			}
+
+			// Drop message by default.
+		}
+
 		return nil
 	}
+
 	return h.sendMessage(entry)
 }
 
 func (h *Hook) sendMessage(entry *logrus.Entry) error {
-	// Make sure we always clear the hookonly fields from the entry
+	// Make sure we always clear the hook only fields from the entry
 	defer h.filterHookOnly(entry)
 
 	// Add in the alwaysSentFields. We don't override fields that are already set.
@@ -197,9 +224,13 @@ func (h *Hook) sendMessage(entry *logrus.Entry) error {
 	}
 
 	// For a filteringHook, stop here
+	h.RLock()
 	if h.conn == nil {
+		h.RUnlock()
+
 		return nil
 	}
+	h.RUnlock()
 
 	formatter := LogstashFormatter{Type: h.appName}
 	if h.TimeFormat != "" {
@@ -210,10 +241,89 @@ func (h *Hook) sendMessage(entry *logrus.Entry) error {
 	if err != nil {
 		return err
 	}
-	if _, err = h.conn.Write(dataBytes); err != nil {
+
+	return h.performSend(dataBytes, 0)
+}
+
+// performSend tries to send data recursively.
+// sendRetries is the actual number of attempts to resend message.
+func (h *Hook) performSend(data []byte, sendRetries int) error {
+	if h.Timeout > 0 {
+		h.Lock()
+		h.conn.SetWriteDeadline(time.Now().Add(h.Timeout))
+		h.Unlock()
+	}
+
+	h.Lock()
+	_, err := h.conn.Write(data)
+	h.Unlock()
+
+	if err != nil {
+		return h.processSendError(err, data, sendRetries)
+	}
+
+	return nil
+}
+
+func (h *Hook) processSendError(err error, data []byte, sendRetries int) error {
+	netErr, ok := err.(net.Error)
+	if !ok {
 		return err
 	}
+
+	if h.isNeedToResendMessage(netErr, sendRetries) {
+		return h.performSend(data, sendRetries+1)
+	}
+
+	if !netErr.Temporary() {
+		if err := h.reconnect(0); err != nil {
+			return fmt.Errorf("Couldn't reconnect to logstash: %s. The reason of reconnect: %s", err, netErr)
+		}
+
+		return h.performSend(data, 0)
+	}
+
+	return err
+}
+
+// TODO Check reconnect for NOT ASYNC mode.
+// The hook will reconnect to Logstash several times with increasing sleep duration between each reconnect attempt.
+// Sleep duration calculated as product of ReconnectBaseDelay by ReconnectDelayMultiplier to the power of reconnectRetries.
+// reconnectRetries is the actual number of attempts to reconnect.
+func (h *Hook) reconnect(reconnectRetries int) error {
+	if h.protocol == "" || h.address == "" {
+		return fmt.Errorf("Can't reconnect because current configuration doen't support it")
+	}
+
+	// Sleep before reconnect.
+	delay := float64(h.ReconnectBaseDelay) * math.Pow(h.ReconnectDelayMultiplier, float64(reconnectRetries))
+	time.Sleep(time.Duration(delay))
+
+	conn, err := net.Dial(h.protocol, h.address)
+
+	// Oops. Can't connect. No problem. Let's try again.
+	if err != nil {
+		if !h.isNeedToReconnect(reconnectRetries) {
+			// We have reached limit of re-connections.
+			return err
+		}
+
+		return h.reconnect(reconnectRetries + 1)
+	}
+
+	h.Lock()
+	h.conn = conn
+	h.Unlock()
+
 	return nil
+}
+
+func (h *Hook) isNeedToResendMessage(err net.Error, sendRetries int) bool {
+	return (err.Temporary() || err.Timeout()) && sendRetries < h.MaxSendRetries
+}
+
+func (h *Hook) isNeedToReconnect(reconnectRetries int) bool {
+	return reconnectRetries < h.MaxReconnectRetries
 }
 
 // Levels specifies "active" log levels.

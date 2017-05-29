@@ -17,6 +17,7 @@ So the main goal of this fork is to add some new features and use logstash hook 
 Added features:
 
 * [Async mode](#async-mode). You can send log messages without blocking logic.
+* [Reconnect](#reconnect).
 
 ## Usage
 
@@ -24,8 +25,8 @@ Added features:
 package main
 
 import (
+    "github.com/Sirupsen/logrus"
     "github.com/cheshir/logrustash"
-    "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -75,13 +76,76 @@ if err != nil {
 log.Hooks.Add(hook)
 ```
 
+In the very rare cases buffer can be clogged. By default all new messages will be dropped until buffer frees.
+
+If you don't want to lose messages you can change this behaviour:
+
+```go
+log := logrus.New()
+hook, err := logrustash.NewAsyncHook("tcp", "172.17.0.2:9999", "myappName")
+if err != nil {
+        log.Fatal(err)
+}
+
+hook.WaitUntilBufferFrees = true
+log.Hooks.Add(hook)
+```
+
+## Reconnect
+
+Doesn't work if you create hook with your own connection. Don't use this factory methods if you want to have auto reconnect:
+
+* NewHookWithFieldsAndConn
+* NewAsyncHookWithFieldsAndConn
+* NewHookWithFieldsAndConnAndPrefix
+* NewAsyncHookWithFieldsAndConnAndPrefix
+
+When occurs not temporary net error hook will automatically try to create new connection to logstash.
+
+With each new consecutive attempt to reconnect, delay before next reconnect will grow up by formula: 
+
+`ReconnectBaseDelay * ReconnectDelayMultiplier^reconnectRetries`
+
+Be careful using reconnects without async mode because delay can increase significantly and this will blocks your logic.
+
+Example for async mode:
+```go
+hook, err := logrustash.NewAsyncHook("tcp", "172.17.0.2:9999", "myappName")
+if err != nil {
+        log.Fatal(err)
+}
+
+hook.ReconnectBaseDelay = time.Second // Wait for one second before first reconnect.
+hook.ReconnectDelayMultiplier = 2
+hook.MaxReconnectRetries = 10
+
+log.Hooks.Add(hook)
+```
+
+With this configuration hook will wait 1024 (2^10) seconds before last reconnect. 
+When message buffer will full all new messages will be dropped (depends on `WaitUntilBufferFrees` parameter).
+
+Example for sync mode:
+```go
+hook, err := logrustash.NewHook("tcp", "172.17.0.2:9999", "myappName")
+if err != nil {
+        log.Fatal(err)
+}
+
+hook.ReconnectBaseDelay = time.Second // Wait for one second before first reconnect.
+hook.ReconnectDelayMultiplier = 1
+hook.MaxReconnectRetries = 3
+
+log.Hooks.Add(hook)
+```
+
+WIth this configuration we will have constant reconnect delay in 1 second.
 
 ## Hook Fields
 Fields can be added to the hook, which will always be in the log context.
 This can be done when creating the hook:
 
 ```go
-
 hook, err := logrustash.NewHookWithFields("tcp", "172.17.0.2:9999", "myappName", logrus.Fields{
         "hostname":    os.Hostname(),
         "serviceName": "myServiceName",
@@ -130,11 +194,16 @@ There are also constructors available which allow you to specify the prefix from
 The std-out will not have the '\_hostname' and '\_servicename' fields, and the logstash output will, but the prefix will be dropped from the name.
 
 
+# TODO
+
+* Add more tests. 
+
 # Authors
 
-Name         | Github    | Twitter    |
------------- | --------- | ---------- |
-Boaz Shuster | ripcurld0 | @ripcurld0 |
+Name              | Github    | Twitter    |
+----------------- | --------- | ---------- |
+Boaz Shuster      | ripcurld0 | @ripcurld0 |
+Alexander Borisov | cheshir   | cheshirysh |
 
 # License
 

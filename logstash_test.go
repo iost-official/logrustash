@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
-func TestLegostashHook(t *testing.T) {
+func TestLogstashHook(t *testing.T) {
 	type Expct struct {
 		appName          string
 		hookOnlyPrefix   string
