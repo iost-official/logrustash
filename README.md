@@ -10,8 +10,8 @@ Use this hook to send the logs to [Logstash](https://www.elastic.co/products/log
 
 This a fork from [github.com/bshuster-repo/logrus-logstash-hook](https://github.com/bshuster-repo/logrus-logstash-hook.git) repo.
 
-[ripcurld0](https://github.com/ripcurld0) going to rewrite original hook but there is no estimates when it will be ready for using in production. 
-And more important is that he declines all pull requests with new features. 
+[ripcurld0](https://github.com/ripcurld0) going to rewrite original hook but there is no estimates when it will be ready for using in production.
+And more important is that he declines all pull requests with new features.
 So the main goal of this fork is to add some new features and use logstash hook until [ripcurld0](https://github.com/ripcurld0) finish his work.
 
 Added features:
@@ -25,8 +25,8 @@ Added features:
 package main
 
 import (
-    "github.com/Sirupsen/logrus"
-    "github.com/cheshir/logrustash"
+    "github.com/sirupsen/logrus"
+    "github.com/ylamothe/logrustash"
 )
 
 func main() {
@@ -102,7 +102,7 @@ Doesn't work if you create hook with your own connection. Don't use this factory
 
 When occurs not temporary net error hook will automatically try to create new connection to logstash.
 
-With each new consecutive attempt to reconnect, delay before next reconnect will grow up by formula: 
+With each new consecutive attempt to reconnect, delay before next reconnect will grow up by formula:
 
 `ReconnectBaseDelay * ReconnectDelayMultiplier^reconnectRetries`
 
@@ -122,7 +122,7 @@ hook.MaxReconnectRetries = 10
 log.Hooks.Add(hook)
 ```
 
-With this configuration hook will wait 1024 (2^10) seconds before last reconnect. 
+With this configuration hook will wait 1024 (2^10) seconds before last reconnect.
 When message buffer will full all new messages will be dropped (depends on `WaitUntilBufferFrees` parameter).
 
 Example for sync mode:
@@ -196,7 +196,7 @@ The std-out will not have the '\_hostname' and '\_servicename' fields, and the l
 
 # TODO
 
-* Add more tests. 
+* Add more tests.
 
 # Authors
 
