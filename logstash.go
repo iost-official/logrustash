@@ -279,7 +279,7 @@ func (h *Hook) processSendError(err error, data []byte, sendRetries int) error {
 		return h.performSend(data, sendRetries+1)
 	}
 
-	if !netErr.Temporary() {
+	if !netErr.Temporary() && h.MaxReconnectRetries > 0 {
 		if err := h.reconnect(0); err != nil {
 			return fmt.Errorf("Couldn't reconnect to logstash: %s. The reason of reconnect: %s", err, netErr)
 		}
