@@ -11,9 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Declares the number of logs that can be in progress before logging will start blocking.
-const asyncFireBufferSize = 8192
-
 // Hook represents a connection to a Logstash instance
 type Hook struct {
 	sync.RWMutex
@@ -25,6 +22,8 @@ type Hook struct {
 	hookOnlyPrefix           string
 	TimeFormat               string
 	fireChannel              chan *logrus.Entry
+	Debug                    bool
+	AsyncBufferSize          int
 	WaitUntilBufferFrees     bool
 	Timeout                  time.Duration // Timeout for sending message.
 	MaxSendRetries           int           // Declares how many times we will try to resend message.
@@ -93,6 +92,7 @@ func NewAsyncHookWithFieldsAndPrefix(protocol, address, appName string, alwaysSe
 	if err != nil {
 		return nil, err
 	}
+	hook.AsyncBufferSize = 8192
 	hook.makeAsync()
 
 	return hook, err
@@ -149,7 +149,7 @@ func NewAsyncFilterHookWithPrefix(prefix string) *Hook {
 }
 
 func (h *Hook) makeAsync() {
-	h.fireChannel = make(chan *logrus.Entry, asyncFireBufferSize)
+	h.fireChannel = make(chan *logrus.Entry, h.AsyncBufferSize)
 
 	go func() {
 		for entry := range h.fireChannel {
@@ -258,6 +258,10 @@ func (h *Hook) performSend(data []byte, sendRetries int) error {
 	_, err := h.conn.Write(data)
 	h.Unlock()
 
+	if err != nil && h.Debug {
+		fmt.Printf("Error sending data to logstash. Reason: %s\n", err.Error())
+	}
+
 	if err != nil {
 		return h.processSendError(err, data, sendRetries)
 	}
@@ -275,7 +279,7 @@ func (h *Hook) processSendError(err error, data []byte, sendRetries int) error {
 		return h.performSend(data, sendRetries+1)
 	}
 
-	if !netErr.Temporary() {
+	if !netErr.Temporary() && h.MaxReconnectRetries > 0 {
 		if err := h.reconnect(0); err != nil {
 			return fmt.Errorf("Couldn't reconnect to logstash: %s. The reason of reconnect: %s", err, netErr)
 		}
@@ -292,7 +296,7 @@ func (h *Hook) processSendError(err error, data []byte, sendRetries int) error {
 // reconnectRetries is the actual number of attempts to reconnect.
 func (h *Hook) reconnect(reconnectRetries int) error {
 	if h.protocol == "" || h.address == "" {
-		return fmt.Errorf("Can't reconnect because current configuration doen't support it")
+		return fmt.Errorf("Can't reconnect because current configuration doesn't support it")
 	}
 
 	// Sleep before reconnect.
