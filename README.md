@@ -204,6 +204,7 @@ Name              | Github    | Twitter    |
 ----------------- | --------- | ---------- |
 Boaz Shuster      | ripcurld0 | @ripcurld0 |
 Alexander Borisov | cheshir   | cheshirysh |
+Klemen Bratec     | klemenb   |            |
 
 # License
 
