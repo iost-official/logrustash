@@ -22,7 +22,6 @@ type Hook struct {
 	hookOnlyPrefix           string
 	TimeFormat               string
 	fireChannel              chan *logrus.Entry
-	Debug                    bool
 	AsyncBufferSize          int
 	WaitUntilBufferFrees     bool
 	Timeout                  time.Duration // Timeout for sending message.
@@ -257,10 +256,6 @@ func (h *Hook) performSend(data []byte, sendRetries int) error {
 	h.Lock()
 	_, err := h.conn.Write(data)
 	h.Unlock()
-
-	if err != nil && h.Debug {
-		fmt.Printf("Error sending data to logstash. Reason: %s\n", err.Error())
-	}
 
 	if err != nil {
 		return h.processSendError(err, data, sendRetries)
