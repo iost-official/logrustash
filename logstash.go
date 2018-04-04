@@ -2,6 +2,7 @@ package logrustash
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net"
 	"strings"
@@ -258,6 +259,9 @@ func (h *Hook) performSend(data []byte, sendRetries int) error {
 	h.Unlock()
 
 	if err != nil {
+		file := fmt.Sprintf("/tmp/logrustash-%d.tmp", time.Now().UnixNano())
+		ioutil.WriteFile(file, data, 0644)
+		fmt.Printf("Wrote message content to %s\n", file)
 		return h.processSendError(err, data, sendRetries)
 	}
 
