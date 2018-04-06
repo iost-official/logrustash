@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/teh-cmc/goautosocket"
 )
 
 // Hook represents a connection to a Logstash instance
@@ -72,7 +73,7 @@ func NewAsyncHookWithFields(protocol, address, appName string, alwaysSentFields 
 // NewHookWithFieldsAndPrefix creates a new hook to a Logstash instance, which listens on
 // `protocol`://`address`. alwaysSentFields will be sent with every log entry. prefix is used to select fields to filter.
 func NewHookWithFieldsAndPrefix(protocol, address, appName string, alwaysSentFields logrus.Fields, prefix string) (*Hook, error) {
-	conn, err := net.Dial(protocol, address)
+	conn, err := gas.Dial(protocol, address)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +303,7 @@ func (h *Hook) reconnect(reconnectRetries int) error {
 	delay := float64(h.ReconnectBaseDelay) * math.Pow(h.ReconnectDelayMultiplier, float64(reconnectRetries))
 	time.Sleep(time.Duration(delay))
 
-	conn, err := net.Dial(h.protocol, h.address)
+	conn, err := gas.Dial(h.protocol, h.address)
 
 	// Oops. Can't connect. No problem. Let's try again.
 	if err != nil {
