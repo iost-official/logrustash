@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const defaultTimestampFormat = time.RFC3339
+
 // LogstashFormatter generates json in logstash format.
 // Logstash site: http://logstash.net/
 type LogstashFormatter struct {
@@ -47,7 +49,7 @@ func (f *LogstashFormatter) FormatWithPrefix(entry *logrus.Entry, prefix string)
 	timeStampFormat := f.TimestampFormat
 
 	if timeStampFormat == "" {
-		timeStampFormat = time.RFC3339
+		timeStampFormat = defaultTimestampFormat
 	}
 
 	fields["@timestamp"] = entry.Time.Format(timeStampFormat)
