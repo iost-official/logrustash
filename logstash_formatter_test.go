@@ -47,7 +47,7 @@ func TestLogstashFormatter(t *testing.T) {
 		{"abc", "type"},
 		{"msg", "message"},
 		{"info", "level"},
-		{"Get http://example.com: The error", "error"},
+		{`Get "http://example.com": The error`, "error"},
 		// substituted fields
 		{"def", "fields.message"},
 		{"ijk", "fields.level"},

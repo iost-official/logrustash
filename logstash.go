@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/teh-cmc/goautosocket"
+	gas "github.com/xaionaro-go/goautosocket"
 )
 
 // Hook represents a connection to a Logstash instance
@@ -73,7 +73,16 @@ func NewAsyncHookWithFields(protocol, address, appName string, alwaysSentFields 
 // NewHookWithFieldsAndPrefix creates a new hook to a Logstash instance, which listens on
 // `protocol`://`address`. alwaysSentFields will be sent with every log entry. prefix is used to select fields to filter.
 func NewHookWithFieldsAndPrefix(protocol, address, appName string, alwaysSentFields logrus.Fields, prefix string) (*Hook, error) {
-	conn, err := gas.Dial(protocol, address)
+	var (
+		conn net.Conn
+		err  error
+	)
+	switch protocol {
+	case "tcp":
+		conn, err = gas.Dial("tcp", address)
+	default:
+		conn, err = net.Dial(protocol, address)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +119,7 @@ func NewAsyncHookWithFieldsAndConn(conn net.Conn, appName string, alwaysSentFiel
 	return NewAsyncHookWithFieldsAndConnAndPrefix(conn, appName, alwaysSentFields, "")
 }
 
-//NewHookWithFieldsAndConnAndPrefix creates a new hook to a Logstash instance using the suppolied connection and prefix.
+// NewHookWithFieldsAndConnAndPrefix creates a new hook to a Logstash instance using the suppolied connection and prefix.
 func NewHookWithFieldsAndConnAndPrefix(conn net.Conn, appName string, alwaysSentFields logrus.Fields, prefix string) (*Hook, error) {
 	return &Hook{conn: conn, appName: appName, alwaysSentFields: alwaysSentFields, hookOnlyPrefix: prefix}, nil
 }
@@ -172,12 +181,12 @@ func (h *Hook) filterHookOnly(entry *logrus.Entry) {
 
 }
 
-//WithPrefix sets a prefix filter to use in all subsequent logging
+// WithPrefix sets a prefix filter to use in all subsequent logging
 func (h *Hook) WithPrefix(prefix string) {
 	h.hookOnlyPrefix = prefix
 }
 
-//WithField add field with value that will be sent with each message
+// WithField add field with value that will be sent with each message
 func (h *Hook) WithField(key string, value interface{}) {
 	h.alwaysSentFields[key] = value
 }
